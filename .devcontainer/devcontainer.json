@@ -2,6 +2,12 @@
   "name": "Node.js Lab",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
 
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+
+  "postCreateCommand": "apt-get update && apt-get install -y nano",
+
   "customizations": {
     "vscode": {
       "extensions": [

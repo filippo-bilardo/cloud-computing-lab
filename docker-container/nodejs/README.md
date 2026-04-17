@@ -107,7 +107,7 @@ docker run -d -p 8080:3000 --name dashboard container-dashboard:1.0
 # Con variabili d'ambiente
 docker run -d -p 3000:3000 --name dashboard \
   -e NODE_ENV=production \
-  container-dashboard:1.0
+  container-dashboard:1.0 
 ```
 
 Aprire il browser su **http://localhost:3000**.

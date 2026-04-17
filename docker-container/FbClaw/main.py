@@ -14,9 +14,21 @@ from pydantic import BaseModel
 import uvicorn
 from groq import Groq
 
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
 from agent import get_or_create_agent, reset_session as agent_reset_session, active_sessions
 
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+_groq_client = None
+
+def get_groq_client() -> Groq:
+    global _groq_client
+    if _groq_client is None:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=503, detail="GROQ_API_KEY non configurata nel file .env")
+        _groq_client = Groq(api_key=api_key)
+    return _groq_client
 
 
 # ── Lifespan: avvia il bot Telegram in background ─────────────────────────────
@@ -36,6 +48,10 @@ async def lifespan(app: FastAPI):
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(title="FbClaw AI Agent", version="1.0.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 
 # ── Modelli Pydantic ──────────────────────────────────────────────────────────
@@ -74,10 +90,15 @@ async def chat(req: ChatRequest):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Il messaggio non può essere vuoto")
 
-    agent = get_or_create_agent(req.session_id)
     try:
+        agent = get_or_create_agent(req.session_id)
         response = agent.run(req.message, stream=False)
-        return {"response": response.content, "session_id": req.session_id}
+        content = response.content
+        if not isinstance(content, str):
+            content = str(content) if content is not None else ""
+        return {"response": content, "session_id": req.session_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -90,12 +111,15 @@ async def transcribe(audio: UploadFile = File(...)):
     """
     audio_bytes = await audio.read()
     try:
-        transcription = groq_client.audio.transcriptions.create(
+        client = get_groq_client()
+        transcription = client.audio.transcriptions.create(
             file=(audio.filename or "audio.webm", audio_bytes),
             model="whisper-large-v3",
             response_format="text",
         )
         return {"text": transcription}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore trascrizione: {e}")
 
@@ -113,23 +137,31 @@ async def voice_to_agent(
 
     # Step 1: Trascrizione con Groq Whisper
     try:
-        transcription = groq_client.audio.transcriptions.create(
+        client = get_groq_client()
+        transcription = client.audio.transcriptions.create(
             file=(audio.filename or "audio.webm", audio_bytes),
             model="whisper-large-v3",
             response_format="text",
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore trascrizione: {e}")
 
     # Step 2: Invio trascrizione all'agente
-    agent = get_or_create_agent(session_id)
     try:
+        agent = get_or_create_agent(session_id)
         response = agent.run(f"[Nota vocale trascrizione]: {transcription}", stream=False)
+        content = response.content
+        if not isinstance(content, str):
+            content = str(content) if content is not None else ""
         return {
             "transcription": transcription,
-            "response": response.content,
+            "response": content,
             "session_id": session_id,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

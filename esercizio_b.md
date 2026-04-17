@@ -159,7 +159,7 @@ curl http://localhost:3000/health
 
 VS Code mostra la notifica **"Port 3000 is available"** → click per aprire nel browser.
 
-### Output atteso nel browser:
+**Output atteso nel browser:**
 ![alt text](assets/image-nodejs-app.png)
 
 ### Step 2.6: Cleanup
@@ -176,12 +176,90 @@ docker stop nodejs-api && docker rm nodejs-api
 
 ```bash
 cat docker-container/java-spring/Dockerfile
-# → Dockerfile multi-stage: Maven build + JRE runtime (immagine finale ~70 MB)
 ```
 
-Il Dockerfile usa un build a due stadi:
-1. **Build stage** (`maven:3.9`) — compila il JAR con `mvn package`
-2. **Runtime stage** (`eclipse-temurin:21-jre-alpine`) — esegue solo il JAR
+Questo Dockerfile usa il pattern **multi-stage build**: due stadi separati nella stessa
+ricetta, in modo da avere un'immagine finale piccola che non contiene Maven né i sorgenti.
+
+---
+
+#### Stage 1 — Build
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21 AS builder
+```
+Immagine base con **Maven 3.9** e **JDK 21** già installati. Viene nominata `builder`
+per poter essere referenziata dal secondo stage. Questa immagine è grande (~500 MB)
+ma viene usata solo durante la compilazione, non nell'immagine finale.
+
+```dockerfile
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline
+```
+**Strategia di cache**: si copia prima solo il `pom.xml` e si scaricano tutte le
+dipendenze Maven. Se il codice sorgente cambia ma il `pom.xml` rimane invariato,
+Docker riusa questo layer dalla cache — il download delle dipendenze non viene ripetuto.
+
+```dockerfile
+COPY src ./src
+RUN mvn package -DskipTests
+```
+Copia il codice sorgente e compila il JAR con `mvn package`. Il flag `-DskipTests`
+salta i test per velocizzare il build (i test si eseguono separatamente in CI).
+L'artefatto finale si trova in `target/*.jar`.
+
+---
+
+#### Stage 2 — Runtime
+
+```dockerfile
+FROM eclipse-temurin:21-jre-alpine
+```
+Immagine base con solo il **JRE** (Java Runtime Environment) su Alpine Linux.
+Non include il JDK, Maven, i sorgenti né le dipendenze di build.
+Dimensione: ~70 MB vs ~500 MB del builder.
+
+```dockerfile
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+```
+`--from=builder` copia il JAR compilato dallo stage precedente.
+Tutto il resto (sorgenti, dipendenze Maven, cache) viene scartato automaticamente.
+
+```dockerfile
+EXPOSE 8080
+CMD ["java", "-jar", "app.jar"]
+```
+Documenta la porta 8080 e avvia l'applicazione Spring Boot.
+Forma array (exec form): `java` diventa PID 1 e riceve correttamente i segnali di stop.
+
+---
+
+**Confronto dimensioni immagini**:
+
+| Stage | Base image | Contenuto | Dimensione |
+|-------|-----------|-----------|-----------|
+| builder | `maven:3.9-eclipse-temurin-21` | JDK + Maven + sorgenti + dipendenze | ~500 MB |
+| finale | `eclipse-temurin:21-jre-alpine` | JRE + solo il JAR | ~70 MB |
+
+**Flusso completo**:
+
+```
+docker build
+  ├── STAGE 1 (builder)
+  │     ├── FROM maven:3.9-eclipse-temurin-21
+  │     ├── COPY pom.xml → RUN mvn dependency:go-offline   ← layer cachato
+  │     ├── COPY src/
+  │     └── RUN mvn package → produce target/app.jar
+  │
+  └── STAGE 2 (finale)
+        ├── FROM eclipse-temurin:21-jre-alpine              ← ~70 MB
+        ├── COPY --from=builder target/*.jar app.jar        ← solo il JAR
+        └── CMD ["java", "-jar", "app.jar"]
+              ↓
+          Immagine finale: ~70 MB (niente Maven, niente sorgenti)
+```
 
 ### Step 3.2: Build dell'immagine
 
@@ -215,6 +293,9 @@ curl http://localhost:8080/health
 # Output: {"status":"ok"}
 ```
 
+**Output atteso nel browser:**
+![alt text](assets/image-spring-boot-app.png)
+
 ### Step 3.6: Cleanup
 
 ```bash
@@ -228,7 +309,135 @@ docker stop spring-dashboard && docker rm spring-dashboard
 Lo stack LAMP usa **Docker Compose** per orchestrare due container: webserver PHP e database MariaDB.
 L'applicazione è una **Kanban Board** moderna con persistenza su MariaDB.
 
-### Step 4.1: Configurazione
+### Step 4.1: Esplora il Dockerfile
+
+```bash
+cat docker-container/lamp/Dockerfile
+```
+
+Il Dockerfile del webserver LAMP è intenzionalmente minimalista:
+
+```dockerfile
+FROM php:8.2.5-apache-bullseye
+RUN docker-php-ext-install pdo_mysql mysqli
+```
+
+```dockerfile
+FROM php:8.2.5-apache-bullseye
+```
+Immagine ufficiale PHP con **Apache già integrato** (`apache-bullseye` = Debian Bullseye).
+Contiene PHP 8.2.5 + mod_php + Apache2 preconfigurati per servire file da `/var/www/html/`.
+A differenza del container Node.js, qui non si copia il codice nell'immagine: viene
+montato come **volume** in `docker-compose.yml` (vedi Step 4.2).
+
+```dockerfile
+RUN docker-php-ext-install pdo_mysql mysqli
+```
+Installa due estensioni PHP necessarie per connettersi a MariaDB:
+- **`pdo_mysql`** — driver PDO (astrazione database, usato in `db.php` del progetto)
+- **`mysqli`** — driver procedurale/orientato agli oggetti (alternativa a PDO)
+
+> 💡 `docker-php-ext-install` è uno script incluso nell'immagine ufficiale PHP che
+> semplifica la compilazione e l'abilitazione delle estensioni.
+
+---
+
+### Step 4.2: Esplora il `docker-compose.yml`
+
+```bash
+cat docker-container/lamp/docker-compose.yml
+```
+
+Il file orchestra **due servizi** che collaborano sulla stessa rete:
+
+#### Servizio `mariadb`
+
+```yaml
+mariadb:
+  image: mariadb:10.11
+  container_name: lamp_mariadb
+  environment:
+    MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    MYSQL_USER: ${MYSQL_USER}
+    MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    MYSQL_DATABASE: ${MYSQL_DATABASE}
+  volumes:
+      - ./volumes/mysql:/var/lib/mysql
+  healthcheck:
+    test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+    interval: 30s
+    retries: 3
+    start_period: 40s
+```
+
+| Chiave | Spiegazione |
+|--------|-------------|
+| `image` | Usa l'immagine ufficiale MariaDB 10.11, senza Dockerfile custom |
+| `environment` | Legge le credenziali dal file `.env` — nessuna password nel codice |
+| `volumes: ./volumes/mysql` | Volume Docker persistente: i dati sopravvivono a `docker compose down` |
+| `healthcheck` | Verifica che MariaDB sia pronto prima di avviare il webserver |
+| `start_period: 40s` | Attende 40s prima di iniziare i check (MariaDB è lento al primo avvio) |
+
+#### Servizio `webserver`
+
+```yaml
+webserver:
+  image: php:8.2.5-apache-bullseye
+  container_name: lamp_webserver
+  depends_on:
+    mariadb:
+      condition: service_healthy
+  environment:
+    DB_USERNAME: ${DB_USERNAME}
+    DB_PASSWORD: ${DB_PASSWORD}
+    DB_HOST: ${DB_HOST}
+    WEBSERVER_ADMIN_USERNAME: ${WEBSERVER_ADMIN_USERNAME}
+    WEBSERVER_ADMIN_PASSWORD: ${WEBSERVER_ADMIN_PASSWORD}
+  volumes:
+    - ./volumes/www/:/var/www/html/
+  ports:
+    - "8888"
+```
+
+| Chiave | Spiegazione |
+|--------|-------------|
+| `depends_on: condition: service_healthy` | Aspetta che `mariadb` passi l'healthcheck prima di partire |
+| `environment` | Legge credenziali DB e admin dal file `.env` |
+| `volumes: ./volumes/www/` | Monta la cartella locale come document root Apache — modifiche al codice PHP sono **immediate** senza rebuild |
+| `ports: 8888` | Mappa la porta 8888 dell'host verso la porta 80 del container |
+
+> 🔒 Le password non sono mai scritte nel `docker-compose.yml`. Docker Compose legge
+> automaticamente il file `.env` nella stessa cartella e sostituisce le variabili `${...}`.
+
+#### Rete
+
+```yaml
+networks:
+  lamp_network:
+    driver: bridge
+    name: nginx_proxy_network
+```
+
+- La rete `lamp_network` isola i container e permette a `webserver` di raggiungere
+  `mariadb` usando il nome del servizio come hostname (es. `DB_HOST: mariadb`)
+- Il nome `nginx_proxy_network` è scelto per essere compatibile con il futuro stack Nginx
+
+**Flusso di avvio**:
+
+```
+docker compose up -d
+  ├── Avvia lamp_mariadb
+  │     └── healthcheck ogni 30s → attende che innodb sia inizializzato
+  │
+  └── (solo quando mariadb è healthy)
+        Avvia lamp_webserver
+              └── Apache serve /var/www/html/ (= ./volumes/www/ in locale)
+                    └── al primo accesso HTTP → db.php crea DB + tabella + 12 task seed
+```
+
+---
+
+### Step 4.3: Configurazione
 
 ```bash
 cd docker-container/lamp
@@ -236,17 +445,11 @@ cp .env.example .env
 # Modifica .env se vuoi cambiare le credenziali (opzionale)
 ```
 
-### Step 4.2: Avvio dello stack
+### Step 4.4: Avvio dello stack
 
 ```bash
 docker compose up -d
 ```
-
-Docker Compose:
-1. Crea la rete `lamp_network`
-2. Avvia `lamp_mariadb` (MariaDB 10.11) e attende l'healthcheck
-3. Avvia `lamp_webserver` (PHP 8.2 + Apache)
-4. Al primo accesso, `db.php` crea il DB `taskmanager`, la tabella e i task iniziali
 
 ### Step 4.3: Verifica stato
 

@@ -3,12 +3,12 @@ services:
     image: mariadb:10.11
     container_name: lamp_mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: lamp
-      MYSQL_USER: lamp
-      MYSQL_PASSWORD: lamp
-      MYSQL_DATABASE: taskmanager
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./volumes/mysql:/var/lib/mysql
     networks:
       - lamp_network
     healthcheck:
@@ -26,11 +26,11 @@ services:
       mariadb:
         condition: service_healthy
     environment:
-      DB_USERNAME: lamp
-      DB_PASSWORD: lamp
-      DB_HOST: mariadb
-      WEBSERVER_ADMIN_USERNAME: admin
-      WEBSERVER_ADMIN_PASSWORD: admin
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      WEBSERVER_ADMIN_USERNAME: ${WEBSERVER_ADMIN_USERNAME}
+      WEBSERVER_ADMIN_PASSWORD: ${WEBSERVER_ADMIN_PASSWORD}
     volumes:
       # Web content directories
       - ./volumes/www/:/var/www/html/
@@ -59,12 +59,3 @@ networks:
     driver: bridge
     name: nginx_proxy_network
 
-volumes:
-  # Volume per i dati persistenti di MySQL/MariaDB
-  # .volumes/mysql_data:/var/lib/mysql
-  mysql_data:
-    driver: local
-    name: mysql_data_volume
-    
-
-  

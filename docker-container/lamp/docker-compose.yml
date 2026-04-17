@@ -6,7 +6,7 @@ services:
       MYSQL_ROOT_PASSWORD: lamp
       MYSQL_USER: lamp
       MYSQL_PASSWORD: lamp
-      MYSQL_DATABASE: ""
+      MYSQL_DATABASE: taskmanager
     volumes:
       - mysql_data:/var/lib/mysql
     networks:

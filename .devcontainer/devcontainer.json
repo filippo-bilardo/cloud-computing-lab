@@ -1,17 +1,13 @@
 {
   "name": "Node.js Lab",
-  "image": "mcr.microsoft.com/devcontainers/base:debian-bullseye",
+  "image": "mcr.microsoft.com/devcontainers/base:debian",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "24" },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "moby": false,
-      "buildxVersion": "v0.11.3"
-    }
+    "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false }
   },
 
-  "postStartCommand": "sudo dockerd --storage-driver=vfs > /tmp/dockerd.log 2>&1 & sleep 5 && docker info --format 'Docker {{.ServerVersion}} pronto'",
-  "postCreateCommand": "node --version",
+  "postCreateCommand": "docker --version && node --version",
 
   "customizations": {
     "vscode": {
@@ -22,5 +18,5 @@
     }
   },
 
-  "forwardPorts": [3000]
+  "forwardPorts": [3000, 8080, 8888]
 }

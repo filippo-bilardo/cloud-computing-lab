@@ -1,13 +1,16 @@
 {
   "name": "Node.js Lab",
-  "image": "mcr.microsoft.com/devcontainers/base:debian",
+  "image": "mcr.microsoft.com/devcontainers/base:debian-bookworm",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "24" },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false }
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": false,
+      "buildxVersion": "v0.11.3"
+    }
   },
 
-  "postStartCommand": "sudo dockerd --storage-driver=vfs > /tmp/dockerd.log 2>&1 & sleep 5 && docker info --format 'Docker {{.ServerVersion}} pronto'",
+  "postStartCommand": "sleep 10 && sudo dockerd --storage-driver=vfs > /tmp/dockerd.log 2>&1 & sleep 5 && docker info --format 'Docker {{.ServerVersion}} pronto'",
   "postCreateCommand": "node --version",
 
   "customizations": {

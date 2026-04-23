@@ -18,5 +18,5 @@
     }
   },
 
-  "forwardPorts": [3000, 8080, 8888]
+  "forwardPorts": [3000]
 }

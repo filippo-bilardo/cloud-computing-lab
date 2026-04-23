@@ -1,22 +1,22 @@
 {
-  "name": "Node.js Lab",
-  "image": "mcr.microsoft.com/devcontainers/base:debian",
+  "name": "Base DinD – Debian",
+  "image": "mcr.microsoft.com/devcontainers/base:debian-12",
 
   "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": { "moby": false }
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "enableNonRootDocker": "true",
+      "moby": "true"
+    }
   },
-
-  "postCreateCommand": "docker --version && node --version",
 
   "customizations": {
     "vscode": {
       "extensions": [
-        "dbaeumer.vscode-eslint",
         "ms-azuretools.vscode-docker"
       ]
     }
   },
 
-  "forwardPorts": [3000]
+  "remoteUser": "vscode"
 }

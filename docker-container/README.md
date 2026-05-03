@@ -263,16 +263,6 @@ docker logs -f spring-dashboard
 
 Apri il browser su **http://localhost:8080** per vedere la dashboard.
 
-### Differenze visive rispetto alla dashboard Node.js
-
-| | Node.js Dashboard | Spring Boot Dashboard |
-|---|---|---|
-| **Tema** | Dark blue/purple | Terminal verde (stile hacker) |
-| **Libreria grafici** | Chart.js 4 | ApexCharts 3 |
-| **Metriche JVM** | No | Sì (Heap, GC, Threads) |
-| **Porta default** | 3000 | 8080 |
-| **Aggiornamento** | ogni 2 s | ogni 3 s |
-
 ---
 
 ## Riferimenti

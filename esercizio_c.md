@@ -136,6 +136,29 @@ EXPOSE 3001
 CMD ["node", "server.js"]
 ```
 
+#### Dimensione dell'immagine Docker
+L'immagine Docker di sopra ha una **dimensione stimata di circa 150-200 MB**, a seconda delle dipendenze installate tramite `npm install`.
+
+##### Dettagli:
+- **Base image**: `node:20-alpine` è una immagine leggera (circa **50-70 MB**).
+- **Dipendenze**: Il comando `npm install --omit=dev` installa solo le dipendenze di produzione, ma la dimensione finale dipende dal contenuto di `package.json`.
+- **File aggiuntivi**: `server.js` e `package.json` contribuiscono in modo trascurabile (pochi KB).
+
+##### Come verificare la dimensione esatta:
+1. **Costruisci l'immagine**:
+   ```bash
+   docker build -t my-node-app .
+   ```
+2. **Controlla la dimensione**:
+   ```bash
+   docker images | grep my-node-app
+   ```
+   Oppure:
+   ```bash
+   docker inspect my-node-app --format='{{.Size}}'
+   ```
+
+
 ---
 
 ## Parte 3: Orders Service
@@ -520,8 +543,9 @@ curl -s -X POST http://localhost:3002/orders \
 docker compose start products-service
 ```
 
-> Questo dimostra la necessità di **circuit breaker** e **retry logic** nelle architetture
-> a microservizi reali.
+> Questo test mostra che, quando un servizio dipendente va in crash, l'intera richiesta può fallire.
+> In un'architettura a microservizi reale si usano quindi **retry logic** (nuovi tentativi con limiti e attese)
+> e **circuit breaker** (interruzione temporanea delle chiamate verso servizi non sani) per aumentare resilienza e stabilità del sistema.
 
 ---
 

@@ -54,6 +54,18 @@ cd cloud-computing-lab
 
 > ⚠️ Puoi anche lavorare direttamente nel browser usando GitHub Codespaces (→ Parte 5).
 
+### ❓ Domande di Riflessione 1 — Fork e Clone
+
+**R1.1** Qual è la differenza tra **fork** e **clone**? Perché è necessario fare prima il fork
+su GitHub e poi il clone in locale, invece di clonare direttamente il repository originale?
+
+**R1.2** Se lavori direttamente su un repository altrui (senza fork) e fai `git commit`,
+cosa succede? E se provi `git push`? Dove vanno i tuoi commit?
+
+**R1.3** Dopo aver fatto il fork, il repository originale potrebbe ricevere nuovi commit.
+Come si mantiene il proprio fork sincronizzato con il repository upstream? Cerca
+`git remote add upstream` e spiega il procedimento.
+
 ---
 
 ## Parte 2: Container Node.js
@@ -167,6 +179,25 @@ VS Code mostra la notifica **"Port 3000 is available"** → click per aprire nel
 ```bash
 docker stop nodejs-api && docker rm nodejs-api
 ```
+
+### ❓ Domande di Riflessione 2 — Dockerfile Node.js e layer cache
+
+**R2.1** Il Dockerfile copia prima `package*.json` e installa le dipendenze (`RUN npm install`),
+*poi* copia il resto del codice (`COPY . .`). Perché questo ordine è importante?
+Cosa succederebbe all'invalidazione della cache se i due `COPY` fossero invertiti?
+
+**R2.2** `EXPOSE 3000` documenta la porta ma **non** la apre al traffico esterno.
+Quale istruzione nel comando `docker run` apre effettivamente la porta? Cosa succederebbe
+se avviassi il container senza `-p 3000:3000`? Riusciresti ancora a fare `curl http://localhost:3000/`?
+
+**R2.3** `CMD ["npm", "start"]` usa la *exec form* (array JSON). La alternativa è la
+*shell form*: `CMD npm start`. Qual è la differenza a livello di processo? Perché
+`npm start` come shell form è problematico per la ricezione del segnale `SIGTERM`
+almentre il container si ferma?
+
+**R2.4** L'immagine base è `node:20-alpine` (~5 MB) invece di `node:20` basata su
+Debian (~900 MB). Quali sono i vantaggi di Alpine? In quale scenario potresti aver
+bisogno dell'immagine Debian più grande (es. dipendenze native, librerie di sistema)?
 
 ---
 
@@ -301,6 +332,24 @@ curl http://localhost:8080/health
 ```bash
 docker stop spring-dashboard && docker rm spring-dashboard
 ```
+
+### ❓ Domande di Riflessione 3 — Multi-stage build Java
+
+**R3.1** Il multi-stage build usa due `FROM`. Perché l'immagine finale è ~70 MB invece
+di ~500 MB? Cosa viene **scartato** automaticamente da Docker al termine del build?
+Elenca almeno 3 elementi che non finiscono nell'immagine finale.
+
+**R3.2** `RUN mvn dependency:go-offline` scarica tutte le dipendenze Maven *prima* di
+copiare il codice sorgente (`COPY src ./src`). Spiega perché questo ordine ottimizza
+la cache. Quando viene invalidato il layer di `dependency:go-offline`?
+
+**R3.3** Guarda la tabella comparativa delle dimensioni (builder ~500 MB vs finale ~70 MB).
+In un ambiente di produzione con 100 istanze del container, qual è il risparmio di
+disco e banda di rete? Perché le dimensioni dell'immagine impattano i tempi di deployment?
+
+**R3.4** Il build usa `-DskipTests` per saltare i test. È sempre una buona pratica?
+In quale fase del ciclo CI/CD i test dovrebbero essere eseguiti? Proponi una pipeline
+semplice in cui il build Docker e i test unit sono separati.
 
 ---
 
@@ -502,16 +551,46 @@ rm -rf ./volumes/mysql/*
 > (`./volumes/mysql`), non un named volume. Per resettare il database bisogna
 > cancellare manualmente il contenuto della cartella.
 
+### ❓ Domande di Riflessione 4 — Docker Compose e stack LAMP
+
+**R4.1** `depends_on: condition: service_healthy` fa sì che `webserver` parta solo dopo
+che `mariadb` supera l'healthcheck. Cosa succederebbe *senza* questa dipendenza?
+Prova a immaginare l'errore che vedrebbe il container PHP al primo avvio.
+
+**R4.2** Il codice PHP è montato come **bind mount** (`./volumes/www/ → /var/www/html/`)
+invece di essere copiato nell'immagine con `COPY`. Qual è il vantaggio principale durante
+lo sviluppo? Quale svantaggio ha questo approccio se si porta l'immagine in produzione
+su un altro server?
+
+**R4.3** Le credenziali del database sono nel file `.env` e non scritte direttamente
+nel `docker-compose.yml`. Perché questa separazione è fondamentale per la sicurezza?
+Cosa succederebbe se committassi le password su GitHub in chiaro? Cerca "GitHub secret
+scanning" per capire cosa fa GitHub automaticamente.
+
+**R4.4** Spiega la differenza tra **bind mount** (`./volumes/mysql`) e **named volume**
+(es. `mysql_data:`) in termini di: (a) dove vengono salvati i dati sul disco, (b) cosa
+succede con `docker compose down -v`, (c) portabilità tra macchine diverse.
+Quale è più adatto alla produzione?
+
+**R4.5** La rete `lamp_network` permette al container `webserver` di raggiungere `mariadb`
+usando il nome del servizio come hostname (`DB_HOST: mariadb`). Come funziona la
+risoluzione DNS interna di Docker? Cosa succederebbe se i due container fossero su
+reti diverse?
+
 ---
 
 ## ✅ Verifica completamento
 
 - [ ] Repository forkato e clonato
+- [ ] Risposte a **R1.1 – R1.3** nel documento di consegna
 - [ ] Container Node.js avviato e testato (`curl http://localhost:3000/`)
+- [ ] Risposte a **R2.1 – R2.4** nel documento di consegna
 - [ ] Container Java Spring avviato e testato (`curl http://localhost:8080/`)
+- [ ] Risposte a **R3.1 – R3.4** nel documento di consegna
 - [ ] Stack LAMP avviato (`docker compose up -d`) e testato (ping API)
 - [ ] Kanban Board aperta nel browser su porta 8888
 - [ ] Operazioni CRUD eseguite sulla Kanban Board
+- [ ] Risposte a **R4.1 – R4.5** nel documento di consegna
 - [ ] Codespace aperto e stack testato
 - [ ] Commit e push effettuati
 
@@ -525,6 +604,28 @@ rm -rf ./volumes/mysql/*
 4. Browser o terminale: risposta JSON di Node.js API (`http://localhost:3000/`)
 5. Browser o terminale: risposta JSON di Spring Boot API (`http://localhost:8080/`)
 6. Codespace aperto (screenshot di VS Code nel browser con il terminale visibile)
+
+---
+
+## 📋 Modalità di Consegna
+
+Crea un documento (Google Doc o PDF) con:
+
+1. **Copertina**: Nome, Cognome, Classe, Data, Titolo ("Esercizio B — Container Docker")
+2. **Indice** numerato con le sezioni dell'esercitazione
+3. **Screenshot** per ogni punto indicato sopra (minimo 6)
+4. **Risposte alle domande di riflessione**: tutte le serie R1–R4 (17 domande totali)
+5. **Comandi eseguiti**: copia-incolla dei comandi con il relativo output
+6. **Conclusioni personali**: riflessione finale (minimo 100 parole)
+
+### Criteri di Valutazione
+
+| Criterio | Peso | Descrizione |
+|----------|------|-------------|
+| Completezza | 30% | Tutti gli screenshot e le risposte presenti |
+| Correttezza tecnica | 25% | Comandi corretti, risposte accurate |
+| Comprensione concetti | 25% | Dimostra di aver capito il "perché" (Dockerfile, cache, volumi) |
+| Riflessione critica | 20% | Confronti, scenari, ragionamento personale |
 
 ---
 

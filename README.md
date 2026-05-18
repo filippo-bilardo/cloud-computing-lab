@@ -164,6 +164,30 @@ VS Code nel browser con l'ambiente già configurato.
 **Complimenti! Hai completato la Parte 1 dell'esercitazione.**
 Hai ora un Codespace funzionante con Node.js disponibile e pronto all'uso.
 
+### ❓ Domande di Riflessione 1 — Dev Container
+
+Prima di proseguire, rispondi nel tuo documento di consegna:
+
+**R1.1** Qual è la differenza principale tra sviluppare *direttamente sul proprio PC* e
+sviluppare dentro un **Dev Container**? Elenca almeno 3 vantaggi del Dev Container per
+un team di sviluppo.
+
+**R1.2** Nel `devcontainer.json` usi `"image": "mcr.microsoft.com/devcontainers/base:debian"`.
+Cosa cambierebbe usando `"image": "node:24"` direttamente senza la *feature* Node?
+Quale approccio è più flessibile e perché?
+
+**R1.3** La *feature* `docker-in-docker` installa Docker *dentro* un container Docker già
+esistente (il Dev Container). Cos'è Docker-in-Docker? Perché è necessario in questo lab?
+Quali rischi comporta in ambienti di produzione?
+
+**R1.4** Il `postCreateCommand` viene eseguito una sola volta subito dopo la creazione del
+container. Se lo cambiassi in `npm install`, quando verrebbe eseguito? Prova a pensare a uno
+scenario in cui questo comando è fondamentale per far funzionare il progetto senza interventi manuali.
+
+**R1.5** Guarda il diagramma testuale nella sezione "Cos'è un Dev Container?". Descrivi
+con parole tue cosa succede al codice che scrivi nel container se cancelli il Codespace
+senza aver fatto `git push`. Come puoi evitare di perdere lavoro?
+
 ---
 
 ## Parte 2: Utilizzare un Dev Container esistente (esercitaione alternativa alla Parte 1)
@@ -227,6 +251,25 @@ docker --version  # Docker 27.x
 **Complimenti! Hai completato la Parte 2 dell'esercitazione.**
 Anche in questo caso hai a disposizione un Codespace funzionante con Node.js pronto all'uso,
 questa volta utilizzando un Dev Container già configurato da un repository esistente.
+
+### ❓ Domande di Riflessione 2 — Dev Container esistente e Codespaces
+
+**R2.1** Confronta i due `devcontainer.json` (quello creato da zero nella Parte 1 e quello
+del repository `cloud-computing-lab`). Elenca le differenze. Cosa aggiunge la sezione
+`customizations.vscode.extensions`? Perché installare estensioni VS Code nel container
+è utile per un team?
+
+**R2.2** GitHub permette di aprire un Codespace su *qualsiasi* repository pubblico.
+Quali implicazioni di sicurezza ha questo per il proprietario del repository?
+Cosa non puoi fare se apri il Codespace su un repository altrui (senza fork)?
+
+**R2.3** `"forwardPorts": [3000, 8080, 8888]` espone automaticamente queste porte dal
+container verso il browser. Cosa succederebbe se non configurassi questa lista e avviassi
+un server sulla porta 3000? Ci sarebbe un modo alternativo per raggiungerlo?
+
+**R2.4** Perché è consigliabile fare un **fork** del repository prima di aprire il
+Codespace, invece di aprirlo direttamente? Descrivi lo scenario in cui il fork è necessario
+per conservare il lavoro svolto.
 
 ---
 
@@ -330,6 +373,29 @@ git commit -m "feat: add nodejs-app standalone"
 > nel Dev Container tramite la *feature*. Nell'[Esercizio B](esercizio_b.md)
 > la stessa app girerà dentro un container Docker isolato.
 
+### ❓ Domande di Riflessione 3 — App Node.js e architettura
+
+**R3.1** L'app espone due endpoint: `/` e `/health`. Perché è buona pratica avere un
+endpoint dedicato al controllo di salute del servizio? Come viene usato in ambienti
+Docker/Kubernetes per decidere se un container è "pronto" a ricevere traffico?
+
+**R3.2** Il file `node_modules/` è escluso dal `.gitignore`. Perché non si include nel
+repository? Come si ricreano le dipendenze su un altro sistema dopo aver clonato il progetto?
+Cosa succederebbe se *non* aggiungessi `node_modules/` al `.gitignore`?
+
+**R3.3** Il server usa `process.env.PORT || 3000`. Spiega cosa significa questo costrutto.
+Perché è preferibile configurare la porta tramite variabile d'ambiente invece di un valore
+fisso nel codice? Fai un esempio pratico in cui la porta fissa causerebbe problemi.
+
+**R3.4** Questa app Node.js gira **direttamente nel Dev Container**. Nell'esercizio B la
+stessa app girerà dentro un **container Docker separato**, avviato dal Dev Container.
+Disegna uno schema che mostra la differenza architetturale tra i due approcci. Quale è
+più isolato? Quale è più semplice da sviluppare?
+
+**R3.5** `npm init -y` genera un `package.json` con valori predefiniti. Apri il file
+`package.json` generato e spiega cosa indicano i campi `"name"`, `"version"`,
+`"main"` e `"scripts"`. A cosa servono le sezioni `"dependencies"` e `"devDependencies"`?
+
 ---
 
 ## ✅ Verifica completamento Esercizio A
@@ -340,17 +406,20 @@ git commit -m "feat: add nodejs-app standalone"
 - [ ] `postCreateCommand` e `forwardPorts` configurati
 - [ ] Commit effettuato con messaggio descrittivo
 - [ ] Codespace aperto e `node --version` / `docker --version` verificati
+- [ ] Risposte a **R1.1 – R1.5** nel documento di consegna
 
 **Parte 2 — Utilizzare un Dev Container esistente**
 - [ ] File `.devcontainer/devcontainer.json` del repository `cloud-computing-lab` aperto e analizzato
 - [ ] Codespace avviato dal repository esistente
 - [ ] `node --version` e `docker --version` verificati nel Codespace
+- [ ] Risposte a **R2.1 – R2.4** nel documento di consegna
 
 **Parte 3 — Creare e avviare la `nodejs-app`**
 - [ ] Cartella `nodejs-app/` creata e progetto inizializzato con `npm init`
-- [ ] File `index.js` creato con server HTTP
+- [ ] File `server.js` creato con server HTTP
 - [ ] Script `start` aggiunto in `package.json`
 - [ ] App avviata con `npm start` e risposta verificata con `curl http://localhost:3000/`
+- [ ] Risposte a **R3.1 – R3.5** nel documento di consegna
 
 ---
 
@@ -363,6 +432,30 @@ git commit -m "feat: add nodejs-app standalone"
 
 ---
 
+## 📋 Modalità di Consegna
+
+Crea un documento (Google Doc o PDF) con:
+
+1. **Copertina**: Nome, Cognome, Classe, Data, Titolo ("Esercizio A — Dev Container e Node.js")
+2. **Indice** numerato con le sezioni dell'esercitazione
+3. **Screenshot** per ogni punto indicato sopra (minimo 4)
+4. **Risposte alle domande di riflessione**: tutte le serie R1, R2, R3 (14 domande totali)
+5. **Comandi eseguiti**: copia-incolla dei comandi con il relativo output
+6. **Conclusioni personali**: riflessione finale (minimo 100 parole)
+
+### Criteri di Valutazione
+
+| Criterio | Peso | Descrizione |
+|----------|------|-------------|
+| Completezza | 30% | Tutti gli screenshot e le risposte presenti |
+| Correttezza tecnica | 25% | Comandi corretti, risposte accurate |
+| Comprensione concetti | 25% | Dimostra di aver capito il "perché" |
+| Riflessione critica | 20% | Confronti, scenari, ragionamento personale |
+
+---
+
 ## 🎯 Prossimi passi
 
 - Completa **[Esercizio B](esercizio_b.md)** — Fork del repository e gestione container Docker (Node.js, Java Spring Boot, LAMP)
+
+- [https://www.cloud.it/container/#soluzioni](https://www.cloud.it/container/#soluzioni) — Approfondimenti su container Docker, Kubernetes e soluzioni cloud native
